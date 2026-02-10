@@ -563,12 +563,10 @@ def salvar_dados_kit(n, tec, nomes, qs_t, qs_f, sig):
      Output("modal-pergunta-finalizar", "is_open"),
      Output("store-index-item-deletar", "data")],
     [
-        # ALTERADO: Usei o ID 'btn-excluir-os' que aparece na sua lista de IDs válidos
-        Input("btn-excluir-os", "n_clicks"),
+        Input("btn-excluir-os", "n_clicks"),  # Ajustado
         Input("btn-abrir-clear", "n_clicks"),
         Input({"type": "btn-del-single", "index": ALL}, "n_clicks"),
-        # Verifique se 'btn-salvar' existe ou se o correto é 'btn-salvar-os'
-        Input("btn-salvar-os", "n_clicks"),
+        Input("btn-salvar-os", "n_clicks"),  # Ajustado
         Input("btn-excluir-confirmado", "n_clicks"),
         Input("btn-clear-sim", "n_clicks"),
         Input("btn-confirm-del-item", "n_clicks"),
@@ -585,35 +583,37 @@ def toggle_all_confirms(n_conf, n_clear, n_single, n_save, n_ex_c, n_cl_s, n_it_
                         n_fi_n, status_atual):
     ctx = callback_context
     if not ctx.triggered:
-        return False, False, False, False, dash.no_update
+        return [dash.no_update] * 5
 
     trig_id = ctx.triggered[0]['prop_id']
 
-    # abrir confirmações
-    if "btn-abrir-confirm.n_clicks" in trig_id and n_conf: return True, False, False, False, dash.no_update
-    if "btn-abrir-clear.n_clicks" in trig_id and n_clear: return False, True, False, False, dash.no_update
+    # --- ABRIR CONFIRMAÇÕES ---
+    # Se clicou no botão de excluir a OS inteira
+    if "btn-excluir-os" in trig_id:
+        return True, False, False, False, dash.no_update
 
-    # excluir item único
-    if "btn-del-single" in trig_id and n_single:
-        val = ctx.triggered[0]['value']
-        if val:
+    if "btn-abrir-clear" in trig_id:
+        return False, True, False, False, dash.no_update
+
+    # --- EXCLUIR ITEM ÚNICO (DA LISTA DE MATERIAIS) ---
+    if "btn-del-single" in trig_id:
+        # Pega qual item da lista ALL foi clicado
+        if any(n_single):
             idx = json.loads(trig_id.split('.')[0])['index']
             return False, False, True, False, idx
 
-    # salvar OS
-    if "btn-salvar.n_clicks" in trig_id and n_save:
+    # --- SALVAR OS (ABRE O MODAL DE PERGUNTA FINAL) ---
+    # Aqui corrigimos para 'btn-salvar-os' para bater com o Input
+    if "btn-salvar-os" in trig_id:
         return False, False, False, True, dash.no_update
 
-    # fechar modal OS
-    if "btn-fechar.n_clicks" in trig_id and n_cl_s:
+    # --- FECHAR TUDO (CANCELAMENTOS) ---
+    # Se qualquer botão de 'cancelar' ou 'não' for clicado
+    cancel_ids = ["cancelar", "nao", "cancel-final"]
+    if any(cid in trig_id for cid in cancel_ids):
         return False, False, False, False, dash.no_update
 
-    # excluir OS
-    if "btn-excluir.n_clicks" in trig_id and n_ex_c:
-        return False, False, True, False, dash.no_update
-
-    return False, False, False, False, None
-
+    return False, False, False, False, dash.no_update
 
 
 @app.callback(
@@ -827,26 +827,25 @@ def save_data(
         stat, resp, tel, obs_v, valor, obs_n,
         sig
 ):
-    # ✅ ADICIONE ESTA LINHA ABAIXO:
     ctx = callback_context
-
     if not ctx.triggered:
         return dash.no_update
 
     trig_id = ctx.triggered[0]['prop_id']
 
-    # 🔍 PING 1: Monitorar o clique
     print(f"\n🚀 CLICK DETECTADO: {trig_id}")
     print(f"🆔 ID vindo do Card (mid_s): {mid_s}")
     print(f"📊 Status selecionado: {stat}")
 
     try:
         df = load_data()
-        # Limpeza agressiva do ID para evitar o erro do ".0"
-        df['id_instalacao'] = df['id_instalacao'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
 
-        mid_s_limpo = str(mid_s or "").replace('.0', '').strip()
-        mid_m_limpo = str(mid_m or "").replace('.0', '').strip()
+        # AJUSTE 1: Limpeza robusta no DataFrame (corta no ponto)
+        df['id_instalacao'] = df['id_instalacao'].astype(str).str.split('.').str[0].str.strip()
+
+        # AJUSTE 2: Limpeza robusta nos IDs vindos do clique (corta no ponto)
+        mid_s_limpo = str(mid_s or "").split('.')[0].strip()
+        mid_m_limpo = str(mid_m or "").split('.')[0].strip()
 
         if "btn-excluir-confirmado" in trig_id:
             print("🗑️ Operação: EXCLUIR")
@@ -860,7 +859,7 @@ def save_data(
             txt = ";".join([f"{i['label']}|{i['total']}|{i['entregue']}" for i in itms]) if itms else ""
             dt_f = dt.replace('T', ' ') if dt else ""
 
-            # 🔍 PING 2: Verificar se a linha existe no CSV
+            # Agora a busca vai encontrar o ID 1770742482 ignorando os decimais
             mask = df['id_instalacao'] == mid_s_limpo
             print(f"🔎 Buscando ID {mid_s_limpo} no CSV... Encontrado? {'SIM' if mask.any() else 'NÃO'}")
 
@@ -887,17 +886,14 @@ def save_data(
                 }])
                 df = pd.concat([df, novo_dado], ignore_index=True)
 
-        # 🔍 PING 3: Tentar gravar o arquivo
         df.to_csv(CSV_FILE, index=False, sep=',', encoding='latin-1')
         print("💾 ARQUIVO CSV GRAVADO NO DISCO!")
 
         return (sig or 0) + 1
 
     except Exception as e:
-        # 🚨 PING DE ERRO: Se algo quebrar, vai aparecer aqui!
         print(f"❌ ERRO CRÍTICO NO SALVAMENTO: {str(e)}")
         return dash.no_update
-
 
 @app.callback(
     [Output('filtro-mes', 'options'),
