@@ -3,3 +3,4 @@ dash-bootstrap-components
 dash-auth
 pandas
 gunicorn
+dash-quill

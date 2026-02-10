@@ -11,8 +11,6 @@ import dash_quill
 from datetime import datetime, date
 import dash_auth
 
-# ... (seus imports)
-
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.CYBORG, dbc.icons.BOOTSTRAP],
@@ -31,10 +29,7 @@ USUARIOS_SENHAS = {
 }
 
 # 2. Ative a proteção (AGORA O APP JÁ EXISTE)
-auth = dash_auth.BasicAuth(
-    app,
-    USUARIOS_SENHAS
-)
+auth = dash_auth.BasicAuth(app, USUARIOS_SENHAS)
 
 # --- 1. CONFIGURAÇÕES E DADOS ---
 CSV_FILE = 'instalacoes.csv'
@@ -382,26 +377,36 @@ def render_aba_kit():
         dbc.Row([
             dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader(html.H5("Checklist Kit Permanente (Ferramentas)", className="mb-0 text-info")),
+                    dbc.CardHeader(
+                        html.H5("Checklist Kit Permanente (Ferramentas)", className="mb-0 text-info"),
+                        style={"backgroundColor": "#121212", "borderBottom": "1px solid #0dcaf0"}  # Header mais escuro
+                    ),
                     dbc.CardBody([
                         dbc.Row([
-                            dbc.Col([dbc.Label("Técnico:"), dcc.Dropdown(id='dropdown-kit-tec',
-                                                                         options=[{'label': t, 'value': t} for t in
-                                                                                  LISTA_TECNICOS],
-                                                                         placeholder="Selecione...",
-                                                                         style={'color': '#000'})], width=4),
-                            dbc.Col(id="resumo-kit-col", width=5),
-                            dbc.Col(
-                                [dbc.Button([html.I(className="bi bi-save me-2"), "Salvar Kit"], id="btn-salvar-kit",
-                                            color="success", className="mt-4")], width=3, className="text-end")
+                            dbc.Col([
+                                dbc.Label("Técnico:", style={"color": "white"}),  # Texto branco
+                                dcc.Dropdown(
+                                    id='dropdown-kit-tec',
+                                    options=[{'label': t, 'value': t} for t in LISTA_TECNICOS],
+                                    placeholder="Selecione...",
+                                    style={'color': '#000'}  # Mantém texto interno preto para leitura
+                                )
+                            ], width=4),
+                            dbc.Col(id="resumo-kit-col", width=5, style={"color": "white"}),  # Resumo em branco
+                            dbc.Col([
+                                dbc.Button([
+                                    html.I(className="bi bi-save me-2"), "Salvar Kit"
+                                ], id="btn-salvar-kit", color="success", className="mt-4")
+                            ], width=3, className="text-end")
                         ], className="mb-4 align-items-end"),
-                        html.Div(id='tabela-kit-container')
-                    ])
-                ], color="dark", outline=True, className="border-info shadow")
+
+                        # Container da tabela (certifique-se que os itens gerados aqui também sejam claros)
+                        html.Div(id='tabela-kit-container', style={"color": "white"})
+                    ], style={"backgroundColor": "#1e1e1e"})  # Fundo do corpo do card
+                ], outline=True, className="border-info shadow")
             ], width=12)
         ])
-    ], className="p-2")
-
+    ], className="p-2", style={"backgroundColor": "#121212", "minHeight": "100vh"})  # Fundo da aba toda
 
 def render_aba_base():
     conteudo_salvo = carregar_nota_json()
@@ -557,18 +562,22 @@ def salvar_dados_kit(n, tec, nomes, qs_t, qs_f, sig):
      Output("modal-item-unico", "is_open"),
      Output("modal-pergunta-finalizar", "is_open"),
      Output("store-index-item-deletar", "data")],
-    [Input("btn-abrir-confirm", "n_clicks"),
-     Input("btn-abrir-clear", "n_clicks"),
-     Input({"type": "btn-del-single", "index": ALL}, "n_clicks"),
-     Input("btn-salvar", "n_clicks"),
-     Input("btn-excluir-confirmado", "n_clicks"),
-     Input("btn-clear-sim", "n_clicks"),
-     Input("btn-confirm-del-item", "n_clicks"),
-     Input("btn-confirm-final-obs", "n_clicks"),
-     Input("btn-excluir-cancelar", "n_clicks"),
-     Input("btn-clear-nao", "n_clicks"),
-     Input("btn-cancel-del-item", "n_clicks"),
-     Input("btn-cancel-final-obs", "n_clicks")],
+    [
+        # ALTERADO: Usei o ID 'btn-excluir-os' que aparece na sua lista de IDs válidos
+        Input("btn-excluir-os", "n_clicks"),
+        Input("btn-abrir-clear", "n_clicks"),
+        Input({"type": "btn-del-single", "index": ALL}, "n_clicks"),
+        # Verifique se 'btn-salvar' existe ou se o correto é 'btn-salvar-os'
+        Input("btn-salvar-os", "n_clicks"),
+        Input("btn-excluir-confirmado", "n_clicks"),
+        Input("btn-clear-sim", "n_clicks"),
+        Input("btn-confirm-del-item", "n_clicks"),
+        Input("btn-confirm-final-obs", "n_clicks"),
+        Input("btn-excluir-cancelar", "n_clicks"),
+        Input("btn-clear-nao", "n_clicks"),
+        Input("btn-cancel-del-item", "n_clicks"),
+        Input("btn-cancel-final-obs", "n_clicks")
+    ],
     [State("modal-status", "value")],
     prevent_initial_call=True
 )
@@ -723,12 +732,16 @@ def manage_main(n_novo, n_edit, n_s, n_confirm_f, n_f, n_ex, status_atual):
         return False, dash.no_update, "", "", None, "", [], "Aberto", "", "", "", "", ""
 
     # 4. Lógica para Salvar (se não for finalizada, fecha o modal)
-    if "btn-salvar" in trig_id:
+    if "btn-salvar-os" in trig_id:  # Corrigido o ID
         if status_atual != "Finalizada":
+            # Se não for finalizada, ele fecha o modal
             return False, dash.no_update, "", "", None, "", [], "Aberto", "", "", "", "", ""
         else:
+            # Se for finalizada, ele mantém aberto para o usuário ver o modal de observação final
+            # ✅ CORRIGIDO AQUI: Adicionado os colchetes [ ]
             return [dash.no_update] * 13
 
+            # Este é o retorno caso nenhum botão acima seja clicado
     return [dash.no_update] * 13
 
 
@@ -788,8 +801,8 @@ def render_list(items):
 
 
 @app.callback(
-    Output('refresh-signal', 'data'),
-    [Input('btn-salvar', 'n_clicks'),
+    Output('refresh-signal', 'data', allow_duplicate=True),
+    [Input('btn-salvar-os', 'n_clicks'), # Já corrigimos para -os
      Input('btn-confirm-final-obs', 'n_clicks'),
      Input('btn-excluir-confirmado', 'n_clicks')],
     [State('modal-id-store', 'data'),
@@ -804,7 +817,7 @@ def render_list(items):
      State('modal-obs', 'value'),
      State('modal-valor', 'value'),
      State('input-obs-final', 'value'),
-     State('modal-solucao', 'value'),
+     # ❌ DELETE A LINHA DO modal-solucao AQUI!
      State('refresh-signal', 'data')],
     prevent_initial_call=True
 )
@@ -812,70 +825,78 @@ def save_data(
         n1, n2, n3,
         mid_s, mid_m, desc, tec, dt, itms,
         stat, resp, tel, obs_v, valor, obs_n,
-        solucao,
         sig
 ):
+    # ✅ ADICIONE ESTA LINHA ABAIXO:
     ctx = callback_context
-    trig_id = ctx.triggered[0]['prop_id']
 
-    if "btn-salvar" in trig_id and stat == "Finalizada":
+    if not ctx.triggered:
         return dash.no_update
 
-    df = load_data()
+    trig_id = ctx.triggered[0]['prop_id']
 
-    # Garantir que a coluna id_instalacao seja tratada como string para comparação
-    df['id_instalacao'] = df['id_instalacao'].astype(str)
+    # 🔍 PING 1: Monitorar o clique
+    print(f"\n🚀 CLICK DETECTADO: {trig_id}")
+    print(f"🆔 ID vindo do Card (mid_s): {mid_s}")
+    print(f"📊 Status selecionado: {stat}")
 
-    if "btn-excluir-confirmado" in trig_id:
-        df = df[df['id_instalacao'] != str(mid_s)]
-    else:
-        obs_f = obs_v
-        if obs_n:
-            obs_f = f"{obs_v}\n[{datetime.now().strftime('%d/%m')}] {obs_n}".strip()
+    try:
+        df = load_data()
+        # Limpeza agressiva do ID para evitar o erro do ".0"
+        df['id_instalacao'] = df['id_instalacao'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
 
-        txt = ";".join([f"{i['label']}|{i['total']}|{i['entregue']}" for i in itms])
-        dt_f = dt.replace('T', ' ') if dt else ""
-        mes = f"{MESES_PT.get(datetime.now().strftime('%B'))}/{datetime.now().year}"
+        mid_s_limpo = str(mid_s or "").replace('.0', '').strip()
+        mid_m_limpo = str(mid_m or "").replace('.0', '').strip()
 
-        # 1. BUSCA A LINHA: Usamos mid_s (ID que veio do Gerenciar) para achar a OS
-        mask = df['id_instalacao'] == str(mid_s)
-
-        if not df[mask].empty:
-            # 2. SE ACHOU, ATUALIZA (Inclusive o Status)
-            idx = df.index[mask][0]
-            # Se mid_m tiver valor, atualiza o ID, senão mantém o mid_s
-            df.at[idx, 'id_instalacao'] = str(mid_m) if mid_m else str(mid_s)
-            df.at[idx, 'tecnico'] = tec or df.at[idx, 'tecnico']
-            df.at[idx, 'descricao'] = desc or df.at[idx, 'descricao']
-            df.at[idx, 'data_inicio'] = dt_f
-            df.at[idx, 'status'] = stat  # 👈 AGORA VAI ATUALIZAR
-            df.at[idx, 'materiais_checklist'] = txt
-            df.at[idx, 'mes_referencia'] = mes
-            df.at[idx, 'responsavel'] = resp or df.at[idx, 'responsavel']
-            df.at[idx, 'telefone'] = tel
-            df.at[idx, 'observacoes'] = obs_f
-            df.at[idx, 'valor_acordado'] = valor
+        if "btn-excluir-confirmado" in trig_id:
+            print("🗑️ Operação: EXCLUIR")
+            df = df[df['id_instalacao'] != mid_s_limpo]
         else:
-            # 3. SE NÃO ACHOU (mid_s é None ou novo), CRIA NOVA
-            nid = str(mid_m) if mid_m else str(mid_s)
-            novo_dado = pd.DataFrame([{
-                'id_instalacao': nid,
-                'tecnico': tec,
-                'descricao': desc,
-                'data_inicio': dt_f,
-                'status': stat,
-                'materiais_checklist': txt,
-                'mes_referencia': mes,
-                'solucao': obs_n,
-                'responsavel': resp,
-                'telefone': tel,
-                'observacoes': obs_f,
-                'valor_acordado': valor
-            }])
-            df = pd.concat([df, novo_dado], ignore_index=True)
+            print("💾 Operação: SALVAR/EDITAR")
+            obs_f = obs_v or ""
+            if obs_n:
+                obs_f = f"{obs_f}\n[{datetime.now().strftime('%d/%m')}] {obs_n}".strip()
 
-    df.to_csv(CSV_FILE, index=False, sep=',', encoding='latin-1')
-    return (sig or 0) + 1
+            txt = ";".join([f"{i['label']}|{i['total']}|{i['entregue']}" for i in itms]) if itms else ""
+            dt_f = dt.replace('T', ' ') if dt else ""
+
+            # 🔍 PING 2: Verificar se a linha existe no CSV
+            mask = df['id_instalacao'] == mid_s_limpo
+            print(f"🔎 Buscando ID {mid_s_limpo} no CSV... Encontrado? {'SIM' if mask.any() else 'NÃO'}")
+
+            if mask.any():
+                idx = df.index[mask][0]
+                df.at[idx, 'id_instalacao'] = mid_m_limpo if mid_m_limpo else mid_s_limpo
+                df.at[idx, 'tecnico'] = tec
+                df.at[idx, 'descricao'] = desc
+                df.at[idx, 'data_inicio'] = dt_f
+                df.at[idx, 'status'] = stat
+                df.at[idx, 'materiais_checklist'] = txt
+                df.at[idx, 'responsavel'] = resp
+                df.at[idx, 'telefone'] = tel
+                df.at[idx, 'observacoes'] = obs_f
+                df.at[idx, 'valor_acordado'] = valor
+                print("✅ Linha atualizada com sucesso!")
+            else:
+                print("🆕 Criando nova linha (ID não encontrado para editar)")
+                nid = mid_m_limpo if mid_m_limpo else mid_s_limpo
+                novo_dado = pd.DataFrame([{
+                    'id_instalacao': nid, 'tecnico': tec, 'descricao': desc,
+                    'data_inicio': dt_f, 'status': stat, 'materiais_checklist': txt,
+                    'responsavel': resp, 'telefone': tel, 'observacoes': obs_f, 'valor_acordado': valor
+                }])
+                df = pd.concat([df, novo_dado], ignore_index=True)
+
+        # 🔍 PING 3: Tentar gravar o arquivo
+        df.to_csv(CSV_FILE, index=False, sep=',', encoding='latin-1')
+        print("💾 ARQUIVO CSV GRAVADO NO DISCO!")
+
+        return (sig or 0) + 1
+
+    except Exception as e:
+        # 🚨 PING DE ERRO: Se algo quebrar, vai aparecer aqui!
+        print(f"❌ ERRO CRÍTICO NO SALVAMENTO: {str(e)}")
+        return dash.no_update
 
 
 @app.callback(
