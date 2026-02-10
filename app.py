@@ -64,7 +64,7 @@ COLUNAS = [
 ]
 
 
-LISTA_TECNICOS = ['Giovanni', 'Roberto', 'Pedro', 'Jobert', 'Leonardo', 'Gustavo', 'Valdeci', 'Farley']
+LISTA_TECNICOS = ['Giovanni', 'Roberto', 'Celso', 'Pedro', 'Jobert', 'Leonardo', 'Gustavo', 'Valdeci', 'Farley']
 
 MESES_PT = {
     "January": "Janeiro", "February": "Fevereiro", "March": "Março", "April": "Abril",
