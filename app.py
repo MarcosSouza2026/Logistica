@@ -11,6 +11,8 @@ import dash_quill
 from datetime import datetime, date
 import dash_auth
 
+# ... (seus imports)
+
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.CYBORG, dbc.icons.BOOTSTRAP],
@@ -29,7 +31,10 @@ USUARIOS_SENHAS = {
 }
 
 # 2. Ative a proteção (AGORA O APP JÁ EXISTE)
-auth = dash_auth.BasicAuth(app, USUARIOS_SENHAS)
+auth = dash_auth.BasicAuth(
+    app,
+    USUARIOS_SENHAS
+)
 
 # --- 1. CONFIGURAÇÕES E DADOS ---
 CSV_FILE = 'instalacoes.csv'
@@ -64,7 +69,7 @@ COLUNAS = [
 ]
 
 
-LISTA_TECNICOS = ['Giovanni', 'Roberto', 'Celso', 'Pedro', 'Jobert', 'Leonardo', 'Gustavo', 'Valdeci', 'Farley']
+LISTA_TECNICOS = ['Giovanni', 'Roberto', 'Pedro', 'Jobert', 'Leonardo', 'Gustavo', 'Valdeci', 'Farley']
 
 MESES_PT = {
     "January": "Janeiro", "February": "Fevereiro", "March": "Março", "April": "Abril",
@@ -563,10 +568,12 @@ def salvar_dados_kit(n, tec, nomes, qs_t, qs_f, sig):
      Output("modal-pergunta-finalizar", "is_open"),
      Output("store-index-item-deletar", "data")],
     [
-        Input("btn-excluir-os", "n_clicks"),  # Ajustado
+        # ALTERADO: Usei o ID 'btn-excluir-os' que aparece na sua lista de IDs válidos
+        Input("btn-excluir-os", "n_clicks"),
         Input("btn-abrir-clear", "n_clicks"),
         Input({"type": "btn-del-single", "index": ALL}, "n_clicks"),
-        Input("btn-salvar-os", "n_clicks"),  # Ajustado
+        # Verifique se 'btn-salvar' existe ou se o correto é 'btn-salvar-os'
+        Input("btn-salvar-os", "n_clicks"),
         Input("btn-excluir-confirmado", "n_clicks"),
         Input("btn-clear-sim", "n_clicks"),
         Input("btn-confirm-del-item", "n_clicks"),
@@ -583,37 +590,35 @@ def toggle_all_confirms(n_conf, n_clear, n_single, n_save, n_ex_c, n_cl_s, n_it_
                         n_fi_n, status_atual):
     ctx = callback_context
     if not ctx.triggered:
-        return [dash.no_update] * 5
+        return False, False, False, False, dash.no_update
 
     trig_id = ctx.triggered[0]['prop_id']
 
-    # --- ABRIR CONFIRMAÇÕES ---
-    # Se clicou no botão de excluir a OS inteira
-    if "btn-excluir-os" in trig_id:
-        return True, False, False, False, dash.no_update
+    # abrir confirmações
+    if "btn-abrir-confirm.n_clicks" in trig_id and n_conf: return True, False, False, False, dash.no_update
+    if "btn-abrir-clear.n_clicks" in trig_id and n_clear: return False, True, False, False, dash.no_update
 
-    if "btn-abrir-clear" in trig_id:
-        return False, True, False, False, dash.no_update
-
-    # --- EXCLUIR ITEM ÚNICO (DA LISTA DE MATERIAIS) ---
-    if "btn-del-single" in trig_id:
-        # Pega qual item da lista ALL foi clicado
-        if any(n_single):
+    # excluir item único
+    if "btn-del-single" in trig_id and n_single:
+        val = ctx.triggered[0]['value']
+        if val:
             idx = json.loads(trig_id.split('.')[0])['index']
             return False, False, True, False, idx
 
-    # --- SALVAR OS (ABRE O MODAL DE PERGUNTA FINAL) ---
-    # Aqui corrigimos para 'btn-salvar-os' para bater com o Input
-    if "btn-salvar-os" in trig_id:
+    # salvar OS
+    if "btn-salvar.n_clicks" in trig_id and n_save:
         return False, False, False, True, dash.no_update
 
-    # --- FECHAR TUDO (CANCELAMENTOS) ---
-    # Se qualquer botão de 'cancelar' ou 'não' for clicado
-    cancel_ids = ["cancelar", "nao", "cancel-final"]
-    if any(cid in trig_id for cid in cancel_ids):
+    # fechar modal OS
+    if "btn-fechar.n_clicks" in trig_id and n_cl_s:
         return False, False, False, False, dash.no_update
 
-    return False, False, False, False, dash.no_update
+    # excluir OS
+    if "btn-excluir.n_clicks" in trig_id and n_ex_c:
+        return False, False, True, False, dash.no_update
+
+    return False, False, False, False, None
+
 
 
 @app.callback(
@@ -827,25 +832,26 @@ def save_data(
         stat, resp, tel, obs_v, valor, obs_n,
         sig
 ):
+    # ✅ ADICIONE ESTA LINHA ABAIXO:
     ctx = callback_context
+
     if not ctx.triggered:
         return dash.no_update
 
     trig_id = ctx.triggered[0]['prop_id']
 
+    # 🔍 PING 1: Monitorar o clique
     print(f"\n🚀 CLICK DETECTADO: {trig_id}")
     print(f"🆔 ID vindo do Card (mid_s): {mid_s}")
     print(f"📊 Status selecionado: {stat}")
 
     try:
         df = load_data()
+        # Limpeza agressiva do ID para evitar o erro do ".0"
+        df['id_instalacao'] = df['id_instalacao'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
 
-        # AJUSTE 1: Limpeza robusta no DataFrame (corta no ponto)
-        df['id_instalacao'] = df['id_instalacao'].astype(str).str.split('.').str[0].str.strip()
-
-        # AJUSTE 2: Limpeza robusta nos IDs vindos do clique (corta no ponto)
-        mid_s_limpo = str(mid_s or "").split('.')[0].strip()
-        mid_m_limpo = str(mid_m or "").split('.')[0].strip()
+        mid_s_limpo = str(mid_s or "").replace('.0', '').strip()
+        mid_m_limpo = str(mid_m or "").replace('.0', '').strip()
 
         if "btn-excluir-confirmado" in trig_id:
             print("🗑️ Operação: EXCLUIR")
@@ -859,7 +865,21 @@ def save_data(
             txt = ";".join([f"{i['label']}|{i['total']}|{i['entregue']}" for i in itms]) if itms else ""
             dt_f = dt.replace('T', ' ') if dt else ""
 
-            # Agora a busca vai encontrar o ID 1770742482 ignorando os decimais
+            # 🔥 GERAR MÊS REFERÊNCIA AUTOMÁTICO
+            MESES = {
+                1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+                5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+                9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+            }
+
+            if dt_f:
+                data_dt = datetime.strptime(dt_f, "%Y-%m-%d %H:%M")
+            else:
+                data_dt = datetime.now()
+
+            mes_ref = f"{MESES[data_dt.month]}/{data_dt.year}"
+
+            # 🔍 PING 2: Verificar se a linha existe no CSV
             mask = df['id_instalacao'] == mid_s_limpo
             print(f"🔎 Buscando ID {mid_s_limpo} no CSV... Encontrado? {'SIM' if mask.any() else 'NÃO'}")
 
@@ -880,20 +900,31 @@ def save_data(
                 print("🆕 Criando nova linha (ID não encontrado para editar)")
                 nid = mid_m_limpo if mid_m_limpo else mid_s_limpo
                 novo_dado = pd.DataFrame([{
-                    'id_instalacao': nid, 'tecnico': tec, 'descricao': desc,
-                    'data_inicio': dt_f, 'status': stat, 'materiais_checklist': txt,
-                    'responsavel': resp, 'telefone': tel, 'observacoes': obs_f, 'valor_acordado': valor
+                    'id_instalacao': nid,
+                    'tecnico': tec,
+                    'descricao': desc,
+                    'data_inicio': dt_f,
+                    'status': stat,
+                    'materiais_checklist': txt,
+                    'mes_referencia': mes_ref,  # 👈 AQUI
+                    'responsavel': resp,
+                    'telefone': tel,
+                    'observacoes': obs_f,
+                    'valor_acordado': valor
                 }])
                 df = pd.concat([df, novo_dado], ignore_index=True)
 
+        # 🔍 PING 3: Tentar gravar o arquivo
         df.to_csv(CSV_FILE, index=False, sep=',', encoding='latin-1')
         print("💾 ARQUIVO CSV GRAVADO NO DISCO!")
 
         return (sig or 0) + 1
 
     except Exception as e:
+        # 🚨 PING DE ERRO: Se algo quebrar, vai aparecer aqui!
         print(f"❌ ERRO CRÍTICO NO SALVAMENTO: {str(e)}")
         return dash.no_update
+
 
 @app.callback(
     [Output('filtro-mes', 'options'),
@@ -1311,6 +1342,7 @@ def toggle_agenda(n_nova, n_edit, n_fecha, n_excluir, refresh, agenda_id, is_ope
         return is_open, dash.no_update
 
     trig_id = ctx.triggered[0]["prop_id"]
+    trig_val = ctx.triggered[0]["value"]
 
     # 🔒 FECHA AUTOMATICAMENTE APÓS SALVAR
     if "refresh-signal" in trig_id:
@@ -1320,9 +1352,12 @@ def toggle_agenda(n_nova, n_edit, n_fecha, n_excluir, refresh, agenda_id, is_ope
     if "agenda-btn-fechar" in trig_id or "agenda-btn-excluir" in trig_id:
         return False, dash.no_update
 
-    # ➕ NOVA MANUTENÇÃO
+     # ➕ NOVA MANUTENÇÃO
     if "btn-nova-agenda" in trig_id:
-        return True, None
+          # 🛡️ TRAVA: Só abre se o clique for real (maior que 0)
+         if not trig_val or trig_val == 0:
+             return is_open, dash.no_update
+         return True, None
 
     # ✏️ GERENCIAR EXISTENTE
     if "edit-agenda" in trig_id:
@@ -1377,10 +1412,11 @@ def render_cards_agenda(sig, tab, data_selecionada):
     df_f['data_ref'] = pd.to_datetime(
         df_f['data_inicio'],
         errors='coerce'
-    ).dt.date.astype(str)
+    ).dt.strftime('%Y-%m-%d')
 
-    # 3. FILTRO PELO DIA SELECIONADO (Agora dentro do DF já filtrado por cidade)
-    df_f = df_f[df_f['data_ref'] == str(data_selecionada)]
+    data_filtrar = str(data_selecionada)[:10]
+
+    df_f = df_f[df_f['data_ref'] == data_filtrar]
 
     # 🔥 GARANTE UM CARD POR O.S.
     df_f = (
@@ -1397,6 +1433,7 @@ def render_cards_agenda(sig, tab, data_selecionada):
 
     colunas_por_tecnico = []
     tecnicos_ativos = df_f['tecnico'].dropna().unique()
+    qtd_tecnicos = len(tecnicos_ativos)
 
     for tecnico in tecnicos_ativos:
         df_tecnico = df_f[df_f['tecnico'] == tecnico]
@@ -1419,12 +1456,15 @@ def render_cards_agenda(sig, tab, data_selecionada):
 
         for _, r in df_tecnico.iterrows():
             status_atual = str(r.get('status', '')).strip()
-            c_c = (
-                "success" if status_atual == "Finalizada"
-                else "danger" if status_atual == "Pendente"
-                else "secondary" if status_atual == "Aberta"
-                else "warning"
-            )
+
+            if status_atual.lower() == "finalizada":
+                c_c = "success"
+            elif status_atual.lower() == "pendente":
+                c_c = "danger"
+            elif status_atual.lower() == "aberta":
+                c_c = "secondary"
+            else:
+                c_c = "warning"
 
             data_exibicao = r['data_inicio'] if r['data_inicio'] else "Não definida"
 
@@ -1507,7 +1547,7 @@ def render_cards_agenda(sig, tab, data_selecionada):
                 color=c_c,
                 inverse=True,
                 className="mb-3 shadow border-0",
-                style={"width": "300px"}
+                style={"width": "100%"}
             )
 
             cards_do_tecnico.append(card)
@@ -1515,14 +1555,14 @@ def render_cards_agenda(sig, tab, data_selecionada):
         colunas_por_tecnico.append(
             dbc.Col(
                 [header_tecnico, html.Div(cards_do_tecnico)],
-                width="auto",
+                width=12 // qtd_tecnicos if qtd_tecnicos > 0 else 12,
                 className="px-3 border-end border-secondary"
             )
         )
 
     return dbc.Row(
         colunas_por_tecnico,
-        className="d-flex flex-nowrap overflow-auto py-3 m-0",
+        className="py-3 m-0",
         style={"width": "100%"}
     )
 
